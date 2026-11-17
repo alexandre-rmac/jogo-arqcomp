@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cruzadinha de Arquitetura Computacional</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Cruzadinha de Arquitetura Computacional</h1>
+    <p>Preencha o tabuleiro com base nas pistas.</p>
+  </header>
+
+  <main>
+    <section id="game-container">
+      <div id="board"></div>
+      <aside id="clues">
+        <h2>Horizontais</h2>
+        <ul id="clues-horizontal"></ul>
+        <h2>Verticais</h2>
+        <ul id="clues-vertical"></ul>
+      </aside>
+    </section>
+
+    <section id="controls">
+      <button id="check-btn" disabled>Conferir</button>
+      <button id="reset-btn">Reiniciar</button>
+      <p id="score">0 de 16 palavras</p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
