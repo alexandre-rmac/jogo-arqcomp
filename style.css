@@ -134,9 +134,38 @@ button:disabled {
   background: #ddeaff;
 }
 
+#clues li {
+  cursor: pointer;
+}
+
 #clues li.active {
   background: #fff4cc;
   font-weight: bold;
   padding: 2px 4px;
   border-radius: 3px;
+}
+
+/* Resultado da conferência */
+.cell.correct {
+  background: #d8f5d0;
+}
+
+.cell.wrong {
+  background: #ffd6d6;
+}
+
+#clues li.correct {
+  color: #1b6e1b;
+}
+
+#clues li.correct::after {
+  content: " ✓";
+}
+
+#clues li.wrong {
+  color: #a12626;
+}
+
+#clues li.wrong::after {
+  content: " ✗";
 }
