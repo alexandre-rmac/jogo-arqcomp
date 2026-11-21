@@ -15,7 +15,7 @@ header {
   margin-bottom: 20px;
 }
 
-h1 {
+.titulo {
   font-size: 1.5rem;
   margin: 0 0 8px;
 }
@@ -25,14 +25,39 @@ main {
   margin: 0 auto;
 }
 
+
+
 #game-container {
   display: flex;
   gap: 20px;
   align-items: flex-start;
 }
 
+#level-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+#level-bar select {
+  padding: 7px 10px;
+  font-size: 0.95rem;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #fff;
+}
+
+#level-info {
+  font-size: 0.9rem;
+  color: #555;
+}
+
 #board {
   flex: 0 0 auto;
+  max-width: 100%;
+  overflow: auto;
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 6px;
@@ -45,9 +70,8 @@ main {
   background: #fff;
 }
 
-.cell-empty {
-  /* espaçador invisível */
-}
+/* .cell-empty {
+} */
 
 .cell-number {
   position: absolute;
@@ -99,7 +123,7 @@ main {
 }
 
 #clues li {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   margin-bottom: 6px;
 }

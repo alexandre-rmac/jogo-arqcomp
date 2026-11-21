@@ -8,11 +8,17 @@
 </head>
 <body>
   <header>
-    <h1>Cruzadinha de Arquitetura Computacional</h1>
-    <p>Preencha o tabuleiro com base nas pistas.</p>
+    <h1 class="titulo">Cruzadinha de Arquitetura Computacional</h1>
   </header>
 
   <main>
+    <section id="level-bar">
+      <label for="level-select">Nível:</label>
+      <select id="level-select"></select>
+      <button id="new-btn">Novo jogo</button>
+      <span id="level-info"></span>
+    </section>
+
     <section id="game-container">
       <div id="board"></div>
       <aside id="clues">
@@ -26,11 +32,12 @@
     <section id="controls">
       <button id="check-btn" disabled>Conferir</button>
       <button id="reset-btn">Reiniciar</button>
-      <p id="score">0 de 16 palavras</p>
+      <p id="score">0 de 0 palavras</p>
     </section>
   </main>
 
+  <script src="tools/banco.js"></script>
+  <script src="tools/gerador.js"></script>
   <script src="script.js"></script>
-  <script src="gerar-layout.js"></script>
 </body>
 </html>

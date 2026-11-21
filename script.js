@@ -1,48 +1,12 @@
 // script.js
-// Dados do tabuleiro, renderização, digitação, navegação e conferência.
+// Níveis, renderização do tabuleiro, digitação, navegação e conferência.
+//
+// Dependências (carregadas antes no index.html):
+//   banco.js    -> NIVEIS e os bancos de perguntas
+//   gerador.js  -> Gerador.novoJogo(): sorteia as perguntas e as posições
 
-const BOARD_ROWS = 17;
-const BOARD_COLS = 17;
 const CELL_SIZE = 30;
-
-// Disposição gerada por tools/gerar-layout.js (node tools/gerar-layout.js).
-// Regras respeitadas: palavras só se tocam por cruzamentos de letras iguais;
-// nenhuma começa onde outra termina na mesma linha/coluna; palavras paralelas
-// nunca ficam coladas. validateLayout() confere isso ao carregar a página.
-const WORDS = [
-  { id: 1, answer: "EEPROM", direction: "vertical", row: 1, col: 3,
-    clue: "Memória não volátil que pode ser apagada e regravada eletricamente." },
-  { id: 2, answer: "ROM", direction: "vertical", row: 1, col: 14,
-    clue: "Memória que só permite leitura e guarda dados permanentes." },
-  { id: 3, answer: "REGISTRADORES", direction: "vertical", row: 1, col: 16,
-    clue: "Pequenas memórias rápidas dentro do processador." },
-  { id: 4, answer: "MEMORIADEMASSA", direction: "vertical", row: 2, col: 1,
-    clue: "Armazenamento permanente de grande capacidade, como HD e SSD." },
-  { id: 5, answer: "QUADCORE", direction: "horizontal", row: 2, col: 9,
-    clue: "Processador com quatro núcleos de processamento." },
-  { id: 6, answer: "UC", direction: "vertical", row: 2, col: 10,
-    clue: "Parte da CPU que coordena e controla as operações." },
-  { id: 7, answer: "RAM", direction: "horizontal", row: 6, col: 1,
-    clue: "Memória volátil usada para armazenar dados temporários." },
-  { id: 8, answer: "DUALCORE", direction: "horizontal", row: 7, col: 10,
-    clue: "Processador com dois núcleos de processamento." },
-  { id: 9, answer: "ULA", direction: "vertical", row: 7, col: 11,
-    clue: "Parte da CPU que faz as contas e as operações lógicas." },
-  { id: 10, answer: "CACHE", direction: "horizontal", row: 8, col: 3,
-    clue: "Memória rápida que guarda dados usados com frequência." },
-  { id: 11, answer: "ADDRESSBUS", direction: "vertical", row: 8, col: 4,
-    clue: "Conjunto de fios que indica onde o dado está na memória." },
-  { id: 12, answer: "DMA", direction: "horizontal", row: 9, col: 9,
-    clue: "Técnica que permite transferir dados sem a intervenção constante do processador." },
-  { id: 12, answer: "DATABUS", direction: "vertical", row: 9, col: 9,
-    clue: "Conjunto de fios que transporta informações entre componentes." },
-  { id: 13, answer: "FLASH", direction: "vertical", row: 9, col: 13,
-    clue: "Memória não volátil usada em pendrives e cartões." },
-  { id: 14, answer: "MICROCONTROLADOR", direction: "horizontal", row: 11, col: 1,
-    clue: "Chip que integra processador, memória e periféricos em um só." },
-  { id: 15, answer: "CPU", direction: "vertical", row: 11, col: 6,
-    clue: "Componente que executa instruções e coordena o sistema." }
-];
+const DEFAULT_LEVEL = "padrao";
 
 const ARROWS = {
   ArrowRight: { dr: 0, dc: 1, direction: "horizontal" },
@@ -51,75 +15,90 @@ const ARROWS = {
   ArrowUp:    { dr: -1, dc: 0, direction: "vertical" }
 };
 
+// Estado do jogo atual (refeito a cada "Novo jogo")
+let WORDS = [];
+let boardRows = 0;
+let boardCols = 0;
+let currentLevel = DEFAULT_LEVEL;
 const cells = new Map();
 
 let currentDirection = "horizontal";
 let currentWord = null;
 let currentIndex = 0;
 
-// ============ Validação da disposição ============
+// ============ Novo jogo e níveis ============
 
-// Confere se a disposição das palavras é válida e avisa no console se não for.
-// Devolve a lista de problemas encontrados (vazia quando tudo está certo).
-function validateLayout() {
-  const problems = [];
-  const grid = new Map();
+// Sorteia as perguntas do nível, gera um tabuleiro com posições novas e o
+// desenha. Devolve false se não foi possível montar o tabuleiro.
+function startNewGame(levelKey) {
+  const level = NIVEIS[levelKey];
+  const info = document.getElementById("level-info");
+  const game = Gerador.novoJogo(level);
 
-  for (const w of WORDS) {
-    for (let i = 0; i < w.answer.length; i++) {
-      const { row, col } = getPositionInWord(w, i);
-      if (row < 1 || row > BOARD_ROWS || col < 1 || col > BOARD_COLS) {
-        problems.push(`"${w.answer}" sai do tabuleiro.`);
-        continue;
-      }
-      const key = `${row}-${col}`;
-      if (grid.has(key) && grid.get(key) !== w.answer[i]) {
-        problems.push(`Letras diferentes na linha ${row}, coluna ${col} ("${w.answer}").`);
-      }
-      grid.set(key, w.answer[i]);
-    }
+  if (!game) {
+    info.textContent = "Não foi possível montar o tabuleiro. Clique em Novo jogo para tentar de novo.";
+    return false;
   }
 
-  // Toda sequência de 2+ casas seguidas precisa ser exatamente uma palavra.
-  // Isso pega "palavra que começa onde outra termina" (ex.: ULA + ADDRESSBUS)
-  // e também palavras paralelas coladas.
-  const declared = new Set(
-    WORDS.map(w => `${w.direction}|${w.row}-${w.col}|${w.answer}`)
-  );
-  for (const direction of ["horizontal", "vertical"]) {
-    const dr = direction === "vertical" ? 1 : 0;
-    const dc = direction === "horizontal" ? 1 : 0;
-    for (const key of grid.keys()) {
-      const [row, col] = key.split("-").map(Number);
-      if (grid.has(`${row - dr}-${col - dc}`)) continue; // não é início de sequência
-      let text = "";
-      let r = row;
-      let c = col;
-      while (grid.has(`${r}-${c}`)) {
-        text += grid.get(`${r}-${c}`);
-        r += dr;
-        c += dc;
-      }
-      if (text.length >= 2 && !declared.has(`${direction}|${row}-${col}|${text}`)) {
-        problems.push(
-          `Sequência não intencional "${text}" (${direction}, linha ${row}, coluna ${col}).`
-        );
-      }
-    }
-  }
+  currentLevel = levelKey;
+  WORDS = game.palavras;
+  boardRows = game.linhas;
+  boardCols = game.colunas;
 
-  // Cada par (número, direção) precisa ser único.
-  const seen = new Set();
-  for (const w of WORDS) {
-    const k = `${w.id}|${w.direction}`;
-    if (seen.has(k)) problems.push(`Número ${w.id} repetido na mesma direção.`);
-    seen.add(k);
-  }
+  cells.clear();
+  currentDirection = "horizontal";
+  currentWord = null;
+  currentIndex = 0;
 
+  const problems = Gerador.validar(WORDS);
   if (problems.length > 0) {
     console.warn("Problemas na disposição das palavras:\n- " + problems.join("\n- "));
   }
-  return problems;
+
+  initCells();
+  renderBoard();
+  renderClues();
+  updateScore();
+  updateCheckButton();
+
+  info.textContent = level.count === level.bank.length
+    ? `${level.count} perguntas, todas do banco (posições sorteadas).`
+    : `${level.count} perguntas sorteadas entre ${level.bank.length} do banco.`;
+  return true;
+}
+
+function hasProgress() {
+  return getAllInputs().some(input => input.value !== "");
+}
+
+function populateLevels() {
+  const select = document.getElementById("level-select");
+  select.innerHTML = "";
+  for (const [key, level] of Object.entries(NIVEIS)) {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = `${level.name} (${level.count} perguntas)`;
+    select.appendChild(option);
+  }
+  select.value = DEFAULT_LEVEL;
+}
+
+function confirmDiscard() {
+  return !hasProgress() ||
+    window.confirm("Começar um novo jogo? O progresso atual será perdido.");
+}
+
+function handleLevelChange(e) {
+  if (!confirmDiscard()) {
+    e.target.value = currentLevel; // volta ao nível anterior
+    return;
+  }
+  startNewGame(e.target.value);
+}
+
+function handleNewGame() {
+  if (!confirmDiscard()) return;
+  startNewGame(document.getElementById("level-select").value);
 }
 
 // ============ Montagem do tabuleiro ============
@@ -145,13 +124,13 @@ function initCells() {
 function renderBoard() {
   const board = document.getElementById("board");
   board.style.display = "grid";
-  board.style.gridTemplateColumns = `repeat(${BOARD_COLS}, ${CELL_SIZE}px)`;
-  board.style.gridTemplateRows = `repeat(${BOARD_ROWS}, ${CELL_SIZE}px)`;
+  board.style.gridTemplateColumns = `repeat(${boardCols}, ${CELL_SIZE}px)`;
+  board.style.gridTemplateRows = `repeat(${boardRows}, ${CELL_SIZE}px)`;
   board.style.gap = "2px";
   board.innerHTML = "";
 
-  for (let row = 1; row <= BOARD_ROWS; row++) {
-    for (let col = 1; col <= BOARD_COLS; col++) {
+  for (let row = 1; row <= boardRows; row++) {
+    for (let col = 1; col <= boardCols; col++) {
       const key = `${row}-${col}`;
       const data = cells.get(key);
       const div = document.createElement("div");
@@ -306,7 +285,7 @@ function focusWordAtIndex(word, index) {
 function moveFocus(fromRow, fromCol, arrow) {
   let row = fromRow + arrow.dr;
   let col = fromCol + arrow.dc;
-  while (row >= 1 && row <= BOARD_ROWS && col >= 1 && col <= BOARD_COLS) {
+  while (row >= 1 && row <= boardRows && col >= 1 && col <= boardCols) {
     const data = cells.get(`${row}-${col}`);
     if (data) {
       if (data.words.some(w => w.direction === arrow.direction)) {
@@ -327,7 +306,7 @@ function updateScore() {
   const correct = document.querySelectorAll("#clues li.correct").length;
   const total = WORDS.length;
   const score = document.getElementById("score");
-  score.textContent = correct === total
+  score.textContent = total > 0 && correct === total
     ? `${correct} de ${total} palavras - parabéns!`
     : `${correct} de ${total} palavras`;
 }
@@ -335,7 +314,8 @@ function updateScore() {
 // O botão Conferir só fica ativo quando todas as casas têm uma letra.
 function updateCheckButton() {
   const btn = document.getElementById("check-btn");
-  btn.disabled = !getAllInputs().every(input => input.value !== "");
+  const inputs = getAllInputs();
+  btn.disabled = inputs.length === 0 || !inputs.every(input => input.value !== "");
 }
 
 // Ao editar uma casa, some a marcação dela e das pistas que passam por ela.
@@ -383,6 +363,7 @@ function checkAnswers() {
   updateScore();
 }
 
+// Limpa as respostas, mas mantém o mesmo tabuleiro.
 function resetBoard() {
   for (const input of getAllInputs()) {
     input.value = "";
@@ -468,14 +449,12 @@ function handleKeydown(e) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  validateLayout();
-  initCells();
-  renderBoard();
-  renderClues();
+  populateLevels();
 
+  document.getElementById("level-select").addEventListener("change", handleLevelChange);
+  document.getElementById("new-btn").addEventListener("click", handleNewGame);
   document.getElementById("check-btn").addEventListener("click", checkAnswers);
   document.getElementById("reset-btn").addEventListener("click", resetBoard);
 
-  updateScore();
-  updateCheckButton();
+  startNewGame(DEFAULT_LEVEL);
 });
