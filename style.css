@@ -129,3 +129,14 @@ button:disabled {
   margin-left: auto;
   font-weight: bold;
 }
+
+.cell-input:focus {
+  background: #ddeaff;
+}
+
+#clues li.active {
+  background: #fff4cc;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 3px;
+}

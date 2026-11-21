@@ -1,14 +1,10 @@
 // script.js
-// Dados do tabuleiro e renderização inicial do jogo.
+// Dados do tabuleiro, renderização e digitação nas casas.
 
 const BOARD_ROWS = 18;
 const BOARD_COLS = 21;
 const CELL_SIZE = 30;
 
-// Cada palavra tem: id (número da pista), answer (grafia do tabuleiro),
-// direction (horizontal | vertical), row/col (início, 1-based) e clue.
-// As palavras 4 (DMA/DATABUS) e 9 (MICROCONTROLADOR/MEMORIADEMASSA)
-// compartilham o mesmo número por cruzarem na mesma casa inicial.
 const WORDS = [
   { id: 1, answer: "EEPROM", direction: "vertical", row: 1, col: 7,
     clue: "Memória não volátil que pode ser apagada e regravada eletricamente." },
@@ -44,8 +40,11 @@ const WORDS = [
     clue: "Processador com quatro núcleos de processamento." }
 ];
 
-// Mapa de casas: chave "linha-coluna" -> { row, col, letter, starts, words }
 const cells = new Map();
+
+let currentDirection = "horizontal";
+let currentWord = null;
+let currentIndex = 0;
 
 function initCells() {
   for (const w of WORDS) {
@@ -98,12 +97,16 @@ function renderBoard() {
 
         const input = document.createElement("input");
         input.type = "text";
-        input.maxLength = 1;
         input.className = "cell-input";
         input.dataset.row = row;
         input.dataset.col = col;
-        input.disabled = true; // habilitado no próximo commit
         input.autocomplete = "off";
+        input.spellcheck = false;
+        input.setAttribute("aria-label", `Linha ${row}, coluna ${col}`);
+        input.addEventListener("focus", handleFocus);
+        input.addEventListener("mousedown", handleMousedown);
+        input.addEventListener("input", handleInput);
+        input.addEventListener("keydown", handleKeydown);
         div.appendChild(input);
       }
 
@@ -136,6 +139,128 @@ function renderClues() {
     li.dataset.id = w.id;
     li.dataset.direction = "vertical";
     vList.appendChild(li);
+  }
+}
+
+// ============ Helpers ============
+
+function parseWordsFromCell(cellEl) {
+  try {
+    return JSON.parse(cellEl.dataset.words || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function findWordForCell(cellEl, direction) {
+  const cellWords = parseWordsFromCell(cellEl);
+  const match = cellWords.find(w => w.direction === direction);
+  if (!match) return null;
+  return WORDS.find(w => w.id === match.id && w.direction === match.direction) || null;
+}
+
+function getIndexInWord(word, row, col) {
+  return word.direction === "horizontal" ? col - word.col : row - word.row;
+}
+
+function getPositionInWord(word, index) {
+  return word.direction === "horizontal"
+    ? { row: word.row, col: word.col + index }
+    : { row: word.row + index, col: word.col };
+}
+
+function getInputAt(row, col) {
+  return document.querySelector(`input[data-row="${row}"][data-col="${col}"]`);
+}
+
+function updateCurrentWordFromFocus(input) {
+  const cellEl = input.parentElement;
+  const cellWords = parseWordsFromCell(cellEl);
+  if (cellWords.length === 0) {
+    currentWord = null;
+    currentIndex = 0;
+    highlightClue();
+    return;
+  }
+  let direction = currentDirection;
+  if (!cellWords.some(w => w.direction === direction)) {
+    direction = cellWords[0].direction;
+    currentDirection = direction;
+  }
+  currentWord = findWordForCell(cellEl, direction);
+  if (currentWord) {
+    const row = parseInt(input.dataset.row, 10);
+    const col = parseInt(input.dataset.col, 10);
+    currentIndex = getIndexInWord(currentWord, row, col);
+  } else {
+    currentIndex = 0;
+  }
+  highlightClue();
+}
+
+function highlightClue() {
+  document.querySelectorAll("#clues li").forEach(li => li.classList.remove("active"));
+  if (!currentWord) return;
+  const li = document.querySelector(
+    `#clues li[data-id="${currentWord.id}"][data-direction="${currentWord.direction}"]`
+  );
+  if (li) li.classList.add("active");
+}
+
+function focusWordAtIndex(word, index) {
+  if (!word || index < 0 || index >= word.answer.length) return;
+  const pos = getPositionInWord(word, index);
+  const input = getInputAt(pos.row, pos.col);
+  if (input) input.focus();
+}
+
+// ============ Event handlers ============
+
+function handleFocus(e) {
+  updateCurrentWordFromFocus(e.target);
+}
+
+function handleMousedown(e) {
+  if (e.target === document.activeElement) {
+    const cellEl = e.target.parentElement;
+    const cellWords = parseWordsFromCell(cellEl);
+    if (cellWords.length > 1) {
+      currentDirection = currentDirection === "horizontal" ? "vertical" : "horizontal";
+      updateCurrentWordFromFocus(e.target);
+    }
+  }
+}
+
+function handleInput(e) {
+  const cleaned = e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(-1);
+  e.target.value = cleaned;
+  if (cleaned && currentWord && currentIndex < currentWord.answer.length - 1) {
+    focusWordAtIndex(currentWord, currentIndex + 1);
+  }
+}
+
+function handleKeydown(e) {
+  if (e.key === "Backspace") {
+    e.preventDefault();
+    if (e.target.value) {
+      e.target.value = "";
+      return;
+    }
+    if (currentWord && currentIndex > 0) {
+      focusWordAtIndex(currentWord, currentIndex - 1);
+      const active = document.activeElement;
+      if (active && active.classList.contains("cell-input")) {
+        active.value = "";
+      }
+    }
+    return;
+  }
+
+  if (!e.ctrlKey && !e.metaKey && !e.altKey
+      && e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+    if (e.target.value) {
+      e.target.value = "";
+    }
   }
 }
 
